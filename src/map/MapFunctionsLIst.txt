@@ -1,0 +1,25 @@
+Quick Search hold ctrlf + f type the function name (see list below) then press enter.
+
+Functions 
+InitializeMap  - used to initialize map
+Coordinates - holds lat and long of events
+CSSButton - button style
+EventButton - used to navigate through events
+UnitControl - used to simulate creating markers
+ExpandingZone - Creates a circle on the map
+ExpZoneGlobVar - Global variables of Expanding zone
+ExpZoneRaidus - Increments the radius of expanding zone
+MarkerGlobVar - Global variables of Marker
+AssignToEvent - Assigns the marker to an event
+SetLocation - adds the marker to the array which is specific to an event.
+setMapOnAll - This function puts the marker on the map
+ContainmentFieldAlgorithm - Ask Ed :P
+Cross - Ask Ed :P
+CreateConvexHull - Ask Ed :P
+DiskBetween - Ask Ed :P
+CreateContainmentField - creates a polygon on the map
+SetContainment - Needs to know what currentEvent it is in to create the Containment field
+ChangeLocationInit - This changes the location of the specified marker
+CreateMarkerInit - This creates a marker specific to a cordon
+ChangeLocation - used to initiate the ChangeLocationInit
+CreateMarker - used to initiate the ChangeLocationInit

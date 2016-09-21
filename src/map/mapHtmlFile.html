@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Whitby</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+        <meta charset="utf-8">
+        <style>
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            #map {
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <script>
+            var map;
+            var changingMarker; //this is boolean true or false
+            var markerToChange; //the marker object we want to change
+            var allMarkers;    //holds markers in an array
+            var isCreating = false;     //Used to detect if create marker is being called
+            var uniqId ;        // holds the unitID to create marker
+            var incr = 1;
+            var idArr = [];
+
+//------------------------------------------------------------------------------
+//InitializeMap  
+//------------------------------------------------------------------------------
+    function initMap() { //Initialize Map
+        var eventLocation = new google.maps.LatLng(-41.1130274, 174.8924949); // Location of event. When scenario is created LatLng will be put in here.
+        var currentEvent;
+        currentEvent = 'Whitby';
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: eventLocation,
+            zoom: 17,
+        });   
+    
+//------------------------------------------------------------------------------
+//Coordinates
+//------------------------------------------------------------------------------
+        var citymap = {
+            well: {
+                center: {lat: -41.2865, lng: 174.7762},
+                rad: 20,
+                name: 'Wellington'
+            },
+            petone: {
+                center: {lat: -41.2270, lng: 174.8851},
+                rad: 20,
+                name: 'Petone'
+            },
+            lwrhutt: {
+                center: {lat: -41.2092, lng: 174.9081},
+                rad: 20,
+                name: 'Lower Hutt'
+            },
+            whitby: {
+                center: {lat: -41.1130274, lng: 174.8924949},
+                rad: 20,
+                name: 'Whitby'
+            }
+        };    
+        //currentArea = citymap.whitby.name;
+//------------------------------------------------------------------------------ 
+//CSSButton
+//------------------------------------------------------------------------------
+        function setUIStyle(ui, div){
+            ui.style.backgroundColor = '#fff';
+            ui.style.border = '2px solid #fff';
+            ui.style.borderRadius = '3px';
+            ui.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
+            ui.style.cursor = 'pointer';
+            ui.style.marginBottom = '22px';
+            ui.style.textAlign = 'center';
+            ui.title = 'Click to recenter the map';
+            div.appendChild(ui);
+        }   
+        function setTextStyle(text, ui, cityName){
+            text.style.color = 'rgb(25,25,25)';
+            text.style.fontFamily = 'Roboto,Arial,sans-serif';
+            text.style.fontSize = '10px';
+            text.style.lineHeight = '38px';
+            text.style.paddingLeft = '5px';
+            text.style.paddingRight = '5px';
+            text.innerHTML = cityName;
+            ui.appendChild(text);
+        }
+//------------------------------------------------------------------------------
+//EventButton
+//------------------------------------------------------------------------------
+        function CenterControl(controlDiv, map, latLong, name) {
+            var controlUI = document.createElement('div');
+            var controlText = document.createElement('div');          
+            setUIStyle(controlUI, controlDiv);
+            setTextStyle(controlText, controlUI, name);
+            actionPerform(controlUI, map, latLong, name);
+        }          
+        function actionPerform(controlUI, map, latLong, name ){
+            controlUI.addEventListener('click', function(){
+                map.setCenter(latLong);
+                currentEvent = name;
+                wellMarkers = [];
+                petoneMarkers = [];
+                lwrhuttMarkers = [];
+                whitbyMarkers = [];
+            });
+        }
+        var centerControlDiv = document.createElement('div');   
+        var centerControl = new CenterControl(centerControlDiv, map, citymap.well.center, citymap.well.name);
+        var centerControl = new CenterControl(centerControlDiv, map, citymap.petone.center, citymap.petone.name);
+        var centerControl = new CenterControl(centerControlDiv, map, citymap.whitby.center, citymap.whitby.name);
+        var centerControl = new CenterControl(centerControlDiv, map, citymap.lwrhutt.center, citymap.lwrhutt.name);
+        //var centerControl = new CenterControl(centerControlDiv, map, citymap.lwrhutt.center, citymap.lwrhutt.name);
+        centerControlDiv.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(centerControlDiv);       
+ 
+//------------------------------------------------------------------------------
+//UnitControl
+//------------------------------------------------------------------------------
+        function UnitControl(unitDiv, idNum, unitName) {
+            var controlUI = document.createElement('div');
+            var controlText = document.createElement('div');          
+            setUIStyle(controlUI, unitDiv);
+            setTextStyle(controlText, controlUI, unitName);
+            actionPerform2(controlUI, idNum);
+        }  
+        //these variables are for the changing location function
+        //var changingMarker; //this is boolean true or false
+        //var markerToChange; //the marker object we want to change
+        
+        function actionPerform2(controlUI, idNum, name ){
+            controlUI.addEventListener('click', function(){
+                if( allMarkers.get(idNum) == null ){
+                    createMarker(idNum);
+                    setLocation( idNum );
+                }
+                else{
+                    changeLocation( idNum );
+                }                   
+            });
+        }
+        
+        var unitControlDiv = document.createElement('div');   
+        var unitControl = new UnitControl(unitControlDiv, 1, 'Unit1');
+        var unitControl = new UnitControl(unitControlDiv, 2, 'Unit2');
+        var unitControl = new UnitControl(unitControlDiv, 3, 'Unit3');
+        var unitControl = new UnitControl(unitControlDiv, 4, 'Unit4');
+        //unitControlDiv.index = 1;
+        map.controls[google.maps.ControlPosition.TOP_LEFT].push(unitControlDiv); 
+//------------------------------------------------------------------------------
+//ExpandingZone     
+//------------------------------------------------------------------------------
+        var cityCircle = [];
+                
+        for (var city in citymap) {
+            var circle = new google.maps.Circle({
+                strokeColor: '#FF0000',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: '#FF0000',
+                fillOpacity: 0.35,
+                map: map,
+                center: citymap[city].center,
+                radius: Math.sqrt(citymap[city].rad),
+            });
+            cityCircle.push(circle);
+        }
+                 
+        function checkWhitby( rad ) {           
+            if ( whitbyZone ) {
+                var vertices = whitbyZone.getPath();
+                var center = new google.maps.LatLng( -41.1130274, 174.8924949 );
+                for( var i = 0; i < vertices.length; i++ ) {
+                    var d = vertices.getAt( i );
+                    var middle;
+                    var quarter1, quarter2, quarter3, quarter4;
+                    if( (i + 1 ) >= vertices.length ){
+                        quarter1 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(0), 0.25);
+                        quarter2 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(0), 0.50);
+                        quarter3 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(0), 0.75);
+                        quarter4 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(0), 1.0);
+                    }
+                    else if( ( i + 1 ) < vertices.length ){
+                        quarter1 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(i+1), 0.25);
+                        quarter2 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(i+1), 0.50);
+                        quarter3 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(i+1), 0.75);
+                        quarter4 = google.maps.geometry.spherical.interpolate(vertices.getAt(i),vertices.getAt(i+1), 1.0);
+                    } 
+                    //calculates the distance between the point and radius
+                    //var middleDist = google.maps.geometry.spherical.computeDistanceBetween( center , middle );
+                    var q1 = google.maps.geometry.spherical.computeDistanceBetween( center , quarter1);
+                    var q2 = google.maps.geometry.spherical.computeDistanceBetween( center , quarter2);
+                    var q3 = google.maps.geometry.spherical.computeDistanceBetween( center , quarter3);
+                    var q4 = google.maps.geometry.spherical.computeDistanceBetween( center , quarter4);
+                    var dist = google.maps.geometry.spherical.computeDistanceBetween( center , d );
+                    //console.log(rad + " " + dist)
+                    if( google.maps.geometry.poly.containsLocation(center, whitbyZone) ) {
+                        if( rad >= dist || rad >= q1 || rad >= q2 || rad >= q3 || rad >= q4){
+                            console.log("radius = " + rad + ", forloop iteration: " + i);
+                            //console.log("pass" + i);	
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            return false;
+        }
+//------------------------------------------------------------------------------
+//ExpZoneGlobVar
+//------------------------------------------------------------------------------
+        var expansionDirection = 1;
+        var timeDelay = 50, maxRad = 190;
+        var radius;
+        var center;
+        var initEscape = 10000;   
+// initEscape simulates the burgalar running at the start. It is a set radius 
+// where they move at a certain pace(fast)
+//------------------------------------------------------------------------------
+//Depending on how much time has passed set the radius to something and start the expanding
+//------------------------------------------------------------------------------
+        if (timeDelay >= 100 )
+        {   
+            radius = 1000;
+        } 
+        else if( timeDelay < 100 ) {
+            radius = 20;
+        }
+//------------------------------------------------------------------------------
+//ExpZoneRadius
+//------------------------------------------------------------------------------
+        setInterval(function ()
+        {
+            for(var i = 0; i < cityCircle.length; i++){
+                radius = cityCircle[i].getRadius(); 
+                //center = cityCircle[i].getCenter();
+                if ( checkWhitby( radius ) )//radius >= maxRad)
+                {
+                    expansionDirection = 0;
+                }
+                if (radius <= initEscape)
+                {
+                    cityCircle[i].setRadius(radius + expansionDirection * 1.0);
+                } 
+                else if (radius >= initEscape)
+                {
+                    cityCircle[i].setRadius(radius + expansionDirection * 0.5);
+                }
+            }
+        }, 50);
+//------------------------------------------------------------------------------
+//MarkersGlobVar (For creating markers and storing markers)
+//------------------------------------------------------------------------------
+        allMarkers = new Map();
+        var wellMarkers = [];
+        var petoneMarkers = [];
+        var lwrhuttMarkers = [];
+        var whitbyMarkers = [];
+//------------------------------------------------------------------------------
+// AssignToEvent (this is just for the createMarker function)
+//------------------------------------------------------------------------------
+        function assignToEvent() {
+            var pos;
+            if( currentEvent === 'Wellington') {
+                pos = {lat: -41.2865, lng: 174.7762};
+            }
+            else if( currentEvent === 'Petone') {
+                pos = {lat: -41.2270, lng: 174.8851};
+            }
+            else if( currentEvent === 'Lower Hutt') {
+                pos = {lat: -41.2092, lng: 174.9081};
+            }
+            else if( currentEvent === 'Whitby' ) {
+                pos = {lat: -41.1130274, lng: 174.8924949};
+            }
+            return pos;
+        }
+//------------------------------------------------------------------------------
+//SetLocation   Adds the marker to an array which is specific to an event.
+//------------------------------------------------------------------------------
+        function setLocation( id ) {    
+            if( currentEvent === 'Wellington') {
+                wellMarkers.push( allMarkers.get( id ) ); 
+            }
+            else if( currentEvent === 'Petone') {
+                petoneMarkers.push(allMarkers.get( id ));
+            }
+            else if( currentEvent === 'Lower Hutt') {
+                lwrhuttMarkers.push(allMarkers.get( id ));
+            }
+            else if( currentEvent === 'Whitby' ) {
+                whitbyMarkers.push(allMarkers.get( id ));
+            }
+        }
+//------------------------------------------------------------------------------
+//SetMapOnAll (this function puts the marker on the map)
+//------------------------------------------------------------------------------        
+        function setMapOnAll(map) {
+            for (var i = 0; i < wellMarkers.length; i++) {
+                wellMarkers[i].setMap(map);
+            }
+            for (var i = 0; i < petoneMarkers.length; i++) {
+                petoneMarkers[i].setMap(map);
+            }
+            for (var i = 0; i < lwrhuttMarkers.length; i++) {
+                lwrhuttMarkers[i].setMap(map);
+            }
+            for (var i = 0; i < whitbyMarkers.length; i++) {
+                whitbyMarkers[i].setMap(map);
+            }
+        }
+//------------------------------------------------------------------------------
+//ContainmentFieldAlgorightm
+//------------------------------------------------------------------------------
+//create an array that stores arrays that hold x and y coordinates where
+//x is the lat and y is the lng coordinates of the cordon marker.
+//------------------------------------------------------------------------------
+        function createXYPoints( mark ) {
+            var lat;
+            var lng;
+            xyPoints.length = 0;
+            for( var i = 0; i < mark.length; i++ ) {
+                lat = mark[i].getPosition().lat();
+                lng = mark[i].getPosition().lng();
+                xyPoints.push( [lat, lng] );
+            }
+        }
+//------------------------------------------------------------------------------
+//cross function determines whether the coordinate/marker currently 
+//being checked is to the left, or right of the last 2 points in the
+//containmentPointsPath array. It is called from inside convexHull() 
+//function. 
+//o and a are the points that form the most recent line in the
+//hull. b is the next point being checked, whether it should be 
+//considered as point to form the hull, or discarded.
+//------------------------------------------------------------------------------
+//Cross
+//------------------------------------------------------------------------------
+        function cross( o, a, b ) {
+            return ( a[0] - o[0] ) * ( b[1] - o[1] ) -
+                   ( a[1] - o[1] ) * ( b[0] - o[0] );
+        }
+//------------------------------------------------------------------------------
+//CreateConvexHull
+//------------------------------------------------------------------------------
+//convexHull fills the containmentPointsPath array, which is used to 
+//create the containment zone. The upper hull and lower hull are 
+//created separately then merged together.
+        function createConvexHull() {
+//sort the array of all possible points, so we can start from the 
+//beginning of the array for the lower hull, and start from the end
+//of the array for the upper hull.
+            xyPoints.sort( function(a,b) {
+                return a[0] == b[0] ? 
+                       a[1] - b[1]  : a[0] - b[0];
+            });
+//Find all the points that are relevant to make the lower hull
+            var lower = [];
+            for( var i = 0; i < xyPoints.length; i++ ) {
+                while( lower.length >= 2 && 
+                        cross( lower[ lower.length - 2], 
+                               lower[ lower.length - 1],
+                               xyPoints[i]) <= 0 ) 
+                {
+                    lower.pop();           
+                }
+                lower.push( xyPoints[i] );
+            }
+//Find all the points that are relevant to make the upper hull
+            var upper = [];
+            for( var i = xyPoints.length - 1; i >= 0; i-- ) {
+                while( upper.length >= 2 && 
+                        cross( upper[ upper.length - 2], 
+                               upper[ upper.length - 1],
+                               xyPoints[i]) <= 0 ) 
+                {
+                    upper.pop();           
+                }
+                upper.push( xyPoints[i] );
+            }
+            upper.pop();
+            lower.pop();
+            var hull = lower.concat(upper);
+//Put the x and y coordinates back in the form of LatLng object
+//so a polygon can be created.
+            for( var i = 0; i < hull.length; i++ ) {
+                pointsPath.push( 
+                        new google.maps.LatLng( hull[i][0], hull[i][1] ));
+            }
+        }
+//------------------------------------------------------------------------------
+//var lat1 = o[0][0];
+//var p1 = new google.maps.LatLng(45.463688, 9.18814);
+//var p2 = new google.maps.LatLng(46.0438317, 9.75936230000002);
+//var point1 = new google.maps.LatLng( a[0], a[1] );
+//var point2 = new google.maps.LatLng( b[0], b[1] );
+//------------------------------------------------------------------------------
+//DistBetween
+//------------------------------------------------------------------------------
+        function distBetween( a, b ) {
+            var dist = google.maps.geometry.spherical.computeDistanceBetween( a, b );
+            return dist;    
+        }
+//alert(dist);
+//var dist = computeDistanceBetween( citymap.well.center, citymap.petone.center);
+//------------------------------------------------------------------------------
+//CreateContainmentField
+//------------------------------------------------------------------------------
+//setContainment uses the containmentPointsPath to create the zone
+        var pointsPath = []; //only stores the latlng points that will be used to form the zone
+        var xyPoints = []; //stores all the cordon markers in the form of x and y coordinates                     
+        var wellZone;    //the polygon zone
+        var petoneZone;
+        var lwrhuttZone;
+        var whitbyZone;
+        
+        function createContainment( markers, zone ) {
+            pointsPath = [];
+            var zoneColor = '#7f7fff';
+            if( markers.length > 2 ) {
+                createXYPoints( markers );
+                createConvexHull();
+                for( var i = 0; i < pointsPath.length - 1; i++ ) {
+                    if( distBetween( pointsPath[i], pointsPath[ i + 1 ] ) > 1000 )
+                        zoneColor = '#ffbf7f';
+                }
+                zone = null;
+                zone = new google.maps.Polygon({
+                    paths: pointsPath,
+                    strokeColor: zoneColor,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: zoneColor,
+                    fillOpacity: 0.35
+                });
+                return zone;
+            }
+        }
+//------------------------------------------------------------------------------
+//SetContainment 
+//------------------------------------------------------------------------------
+        function setContainment() {
+            if( currentEvent === 'Wellington' ) {
+                if( wellZone ) {
+                    wellZone.setMap(null);
+                    wellZone = null;
+                }
+                wellZone = createContainment( wellMarkers, wellZone );
+                wellZone.setMap(map);
+            }
+            else if( currentEvent === 'Petone') {
+                if( petoneZone ) {
+                    petoneZone.setMap(null);
+                    petoneZone = null;
+                }
+                petoneZone = createContainment( petoneMarkers, petoneZone );
+                petoneZone.setMap(map);
+            }
+            else if( currentEvent === 'Lower Hutt') {
+                if( lwrhuttZone ) {
+                    lwrhuttZone.setMap(null);
+                    lwrhuttZone = null;
+                }
+                lwrhuttZone = createContainment( lwrhuttMarkers, lwrhuttZone );
+                lwrhuttZone.setMap(map);
+            }
+            else if( currentEvent === 'Whitby') {
+                if( whitbyZone ) {
+                    whitbyZone.setMap(null);
+                    whitbyZone = null;
+                }
+                whitbyZone = createContainment( whitbyMarkers, whitbyZone );
+                whitbyZone.setMap(map);
+            }
+        }  
+//------------------------------------------------------------------------------
+//ChangeLocationInit  (Changes the position of the marker) 
+//------------------------------------------------------------------------------
+        //listens for clicks on the map.
+        google.maps.event.addListener( map, 'click', function(event) {
+            if( changingMarker ) {
+                markerToChange.setMap(null);
+                markerToChange.setPosition( event.latLng );
+                setContainment();
+                setMapOnAll(map);
+            } 
+            changingMarker = false;
+        });
+//------------------------------------------------------------------------------
+// CreateMarkerInit (Creates Marker only isPlacing is true, see createMarker() )
+//------------------------------------------------------------------------------
+         var num = (function() { //counter
+            var count = 1;   
+            return function() { return count++; };  
+        })(); 
+        
+        setInterval (function() {
+            if(isCreating == true){       
+                for(var i = 0; i < idArr.length; i++){
+                    
+                    var marker = new google.maps.Marker({
+                        position: null,
+                        icon: 'policeCar.ico',
+                        id: idArr[i]
+                    });
+                    allMarkers.set( idArr[i], marker );
+                    var unit = new google.maps.InfoWindow({
+                    content: 'WLT ' + idArr[i]});
+                    unit.open(map,marker);
+                    setLocation(idArr[i]); 
+                }
+            }  
+            isCreating = false;
+            idArr = [];
+        }); 
+//------------------------------------------------------------------------------
+    }//end of init map
+//------------------------------------------------------------------------------
+//changeLocation initiates the chaning location see ChangeLocationInit
+//------------------------------------------------------------------------------
+    function changeLocation( uid ) {
+        changingMarker = true;
+        markerToChange = allMarkers.get(uid);
+    }
+//------------------------------------------------------------------------------
+//createMarker initiates the google map create marker see CreateMarkerInit
+//------------------------------------------------------------------------------
+    function createMarker(){
+        isCreating = true;
+    }
+//------------------------------------------------------------------------------
+//setMarker puts the id inside the array
+//------------------------------------------------------------------------------    
+    function setMarkerId(uid){
+        idArr.push(uid);
+    }
+//------------------------------------------------------------------------------
+        google.maps.event.addDomListener(window, 'load', initialize);
+        </script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBmE4K2a37cqq8wdmkTudyrRkDVbNEtx-4&callback=initMap&libraries=geometry"
+        async defer></script>
+    </body>
+</html>
