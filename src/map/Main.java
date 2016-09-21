@@ -48,8 +48,9 @@ public class Main extends Application {
     private static String time;
     private static String type;
     private static String status;
-   private Text actionStatus;
-  
+    private Text actionStatus;
+    private static double xOffset = 0;
+    private static double yOffset = 0;
   
     private int id;
     
@@ -128,12 +129,20 @@ public class Main extends Application {
        
         primaryStage.setScene(scene);
         primaryStage.show();
+        primaryStage.getScene().setOnMousePressed(new EventHandler<MouseEvent>(){
+            @Override
+            public void handle(MouseEvent event){
+                xOffset = primaryStage.getX() - event.getScreenX();
+                yOffset = primaryStage.getY() - event.getScreenY();
+            }
+        });
         primaryStage.getScene().setOnMouseDragged(new EventHandler<MouseEvent>() { 
 
           @Override 
           public void handle(MouseEvent event) { 
-            primaryStage.setX(event.getScreenX()); 
-            primaryStage.setY(event.getScreenY()); 
+          
+                primaryStage.setX(event.getScreenX() + xOffset);
+                primaryStage.setY(event.getScreenY() + yOffset);
           } 
            
         }); 
